@@ -7,40 +7,78 @@
     <title>Tính Điểm Xập Xám</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
     <link href="/static/css/styles.css" rel="stylesheet">
 </head>
 
-<body>
-    <h1>Tính Điểm</h1>
+<body class="p-4">
+    <h1>Tính Điểm Xập Xám</h1>
+
+    <!-- Cấu hình người chơi -->
+    <h2>Cấu hình người chơi</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="num_players" class="form-label">Số lượng người chơi (2-4):</label>
+            <input type="number" id="num_players" name="num_players" min="{{ min_players }}" max="{{ max_players }}"
+                value="{{ players|length }}" required class="form-control" style="width:100px;">
+        </div>
+
+        <div class="mb-3">
+            <p>Nhập tên người chơi:</p>
+            {% for i in range(players|length) %}
+            <div class="mb-2">
+                <label>Người chơi {{i+1}}:</label>
+                <input type="text" name="player_name_{{i+1}}" value="{{ players[i] }}"
+                    class="form-control d-inline-block" style="width:200px;">
+            </div>
+            {% endfor %}
+        </div>
+        <button type="submit" name="update_settings" value="1" class="btn btn-primary">Cập nhật người chơi</button>
+    </form>
+    <hr>
 
     <!-- Tỷ lệ quy đổi -->
     <h2>Cập nhật tỷ lệ quy đổi</h2>
-    <form method="POST">
-        <label for="conversion_rate">Tỷ lệ quy đổi (VNĐ/điểm):</label>
-        <input type="number" id="conversion_rate" name="conversion_rate" value="{{ conversion_rate }}" required>
+    <form method="POST" class="mb-4">
+        <div class="mb-3">
+            <label for="conversion_rate" class="form-label">Tỷ lệ quy đổi:</label>
+            <input type="number" step="0.001" id="conversion_rate" name="conversion_rate" value="{{ conversion_rate }}"
+                required class="form-control" style="width:200px;">
+        </div>
+        <div class="mb-3">
+            <label for="currency" class="form-label">Đơn vị tiền tệ:</label>
+            <select name="currency" id="currency" class="form-select" style="width:200px;">
+                <option value="VND" {% if currency=="VND" %}selected{% endif %}>VND</option>
+                <option value="KHR" {% if currency=="KHR" %}selected{% endif %}>KHR</option>
+                <option value="USD" {% if currency=="USD" %}selected{% endif %}>USD</option>
+            </select>
+        </div>
         <button type="submit" name="update_conversion_rate" value="1" class="btn btn-primary">Cập nhật</button>
     </form>
+    <hr>
 
-    <!-- Phần nhập Tính điểm xập xám -->
+    <!-- Tính điểm xập xám -->
     <h2>Tính điểm xập xám</h2>
-    <form method="POST">
-        <label for="chi_dau">Chi đầu (thứ tự thắng):</label>
-        <input type="text" id="chi_dau" name="chi_dau">
-        <br><br>
+    <form method="POST" class="mb-4">
+        <div class="mb-3">
+            <label for="chi_dau" class="form-label">Chi đầu (thứ tự thắng):</label>
+            <input type="text" id="chi_dau" name="chi_dau" class="form-control" style="width:200px;"
+                value="{{ last_chi_dau }}">
+        </div>
 
-        <label for="chi_giua">Chi giữa (thứ tự thắng):</label>
-        <input type="text" id="chi_giua" name="chi_giua">
-        <br><br>
+        <div class="mb-3">
+            <label for="chi_giua" class="form-label">Chi giữa (thứ tự thắng):</label>
+            <input type="text" id="chi_giua" name="chi_giua" class="form-control" style="width:200px;"
+                value="{{ last_chi_giua }}">
+        </div>
 
-        <label for="chi_cuoi">Chi cuối (thứ tự thắng):</label>
-        <input type="text" id="chi_cuoi" name="chi_cuoi">
-        <br><br>
+        <div class="mb-3">
+            <label for="chi_cuoi" class="form-label">Chi cuối (thứ tự thắng):</label>
+            <input type="text" id="chi_cuoi" name="chi_cuoi" class="form-control" style="width:200px;"
+                value="{{ last_chi_cuoi }}">
+        </div>
 
-
-        <!-- Dropdown chọn Mậu Binh -->
         <h2>Chọn Mậu Binh</h2>
-        <table class="table">
+        <table class="table table-bordered">
             <thead>
                 <tr>
                     <th>Người chơi</th>
@@ -52,7 +90,7 @@
                 <tr>
                     <td>{{ player }}</td>
                     <td>
-                        <select name="mau_binh_{{player}}">
+                        <select name="mau_binh_{{player}}" class="form-select" style="width:200px;">
                             <option value="none" {% if scores[player]["mau_binh"]=="none" %}selected{% endif %}>Không
                             </option>
                             <option value="rong_dong_hoa" {% if scores[player]["mau_binh"]=="rong_dong_hoa" %}selected{%
@@ -76,14 +114,14 @@
             </tbody>
         </table>
 
-        <br>
         <button type="submit" class="btn btn-primary">Tính Điểm</button>
         <button type="submit" name="clear_history" value="1" class="btn btn-warning">Clear</button>
     </form>
+    <hr>
 
     <!-- Kết quả -->
     <h2>Kết Quả</h2>
-    <table class="table">
+    <table class="table table-bordered">
         <thead>
             <tr>
                 <th>Người chơi</th>
@@ -102,7 +140,7 @@
                     {{ player }}
                     <span
                         class="{% if player_total_points[player] > 0 %}money-positive{% elif player_total_points[player] < 0 %}money-negative{% endif %}">
-                        (Tiền: {{ player_total_points[player] * conversion_rate }} VND)
+                        (Tiền: {{ "%.2f"|format(player_total_points[player]*conversion_rate) }} {{ currency }})
                     </span>
                 </td>
                 <td>{{ scores[player]["chi_dau"] }}</td>
@@ -113,7 +151,7 @@
                     {% if scores[player]["mau_binh"] == "none" %}
                     Không
                     {% else %}
-                    {{ scores[player]["mau_binh"].replace("_", " ").capitalize() }}
+                    {{ scores[player]["mau_binh"].replace("_", " ")|title }}
                     {% endif %}
                 </td>
                 <td>{{ scores[player]["tong"] }}</td>
@@ -123,7 +161,7 @@
     </table>
 
     <h2>Kết quả Sập Hầm</h2>
-    <ul class="list-group">
+    <ul class="list-group mb-4">
         {% for result in sap_ham_results %}
         <li class="list-group-item">{{ result }}</li>
         {% endfor %}
@@ -131,18 +169,17 @@
         <li class="list-group-item">Không có ai bị Sập Hầm trong ván này.</li>
         {% endif %}
     </ul>
-
+    <hr>
 
     <!-- Bảng lịch sử các ván đấu -->
     <h2>Lịch Sử Các Ván Đấu</h2>
-    <table class="table">
+    <table class="table table-bordered">
         <thead>
             <tr>
                 <th>Round</th>
-                <th>Alvin</th>
-                <th>Ryan</th>
-                <th>May</th>
-                <th>Cece</th>
+                {% for player in players %}
+                <th>{{ player }}</th>
+                {% endfor %}
                 <th>Action</th>
             </tr>
         </thead>
@@ -150,24 +187,29 @@
             {% for round in history %}
             <tr>
                 <td>{{ round.round }}</td>
-                <td>{{ round.Alvin }}</td>
-                <td>{{ round.Ryan }}</td>
-                <td>{{ round.May }}</td>
-                <td>{{ round.Cece }}</td>
+                {% for player in players %}
+                <td>
+                    {{ round[player] }}
+                    {% if round[player ~ '_mau_binh'] is defined %}
+                    <span style="color:red;font-weight:bold;font-size:smaller;">({{ round[player ~
+                        '_mau_binh'].replace('_', ' ')|title }})</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
                 <td>
                     <!-- Xóa ván đấu -->
                     <form method="POST" style="display: inline;">
                         <input type="hidden" name="delete_round" value="{{ round.round }}">
-                        <button type="submit" class="btn btn-danger">Xoá</button>
+                        <button type="submit" class="btn btn-danger btn-sm">Xoá</button>
                     </form>
                     <!-- Sửa ván đấu -->
                     <form method="POST" style="display: inline;">
                         <input type="hidden" name="edit_round" value="{{ round.round }}">
-                        <input type="text" name="edit_Alvin" value="{{ round.Alvin }}" size="3">
-                        <input type="text" name="edit_Ryan" value="{{ round.Ryan }}" size="3">
-                        <input type="text" name="edit_May" value="{{ round.May }}" size="3">
-                        <input type="text" name="edit_Cece" value="{{ round.Cece }}" size="3">
-                        <button type="submit" class="btn btn-primary">Sửa</button>
+                        {% for player in players %}
+                        <input type="text" name="edit_{{player}}" value="{{ round[player] }}" size="3"
+                            class="form-control d-inline-block" style="width:60px;">
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary btn-sm">Sửa</button>
                     </form>
                 </td>
             </tr>
@@ -175,7 +217,6 @@
         </tbody>
     </table>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
