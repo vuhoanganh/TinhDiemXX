@@ -1,0 +1,61 @@
+body {
+    background-color: #f9f7f2;
+    font-family: "Garamond", serif;
+    color: #333;
+    padding: 20px;
+}
+h1, h2 {
+    font-weight: normal;
+    text-align: center;
+    color: #4a3f35;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fffaf2;
+}
+table, th, td {
+    border: 1px solid #ccb78f;
+}
+th {
+    background-color: #e5d7c2;
+    font-weight: normal;
+    padding: 8px;
+    text-align: center;
+}
+td {
+    padding: 8px;
+    text-align: center;
+}
+button {
+    background-color: #ccb78f;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: "Garamond", serif;
+}
+button:hover {
+    background-color: #b3a186;
+}
+
+/* Hiệu ứng cho tiền */
+.money-positive {
+    outline: 2px solid green;
+    font-weight: bold;
+    animation: pulse-green 1s infinite;
+}
+.money-negative {
+    outline: 2px solid red;
+    font-weight: bold;
+    animation: pulse-red 1s infinite;
+}
+@keyframes pulse-green {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+@keyframes pulse-red {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}

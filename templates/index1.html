@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tính Điểm Xập Xám</title>
+    <style>
+        body {
+            background-color: #f9f7f2;
+            font-family: "Garamond", serif;
+            color: #333;
+            padding: 20px;
+        }
+        h1, h2 {
+            font-weight: normal;
+            text-align: center;
+            color: #4a3f35;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fffaf2;
+        }
+        table, th, td {
+            border: 1px solid #ccb78f;
+        }
+        th {
+            background-color: #e5d7c2;
+            font-weight: normal;
+            padding: 8px;
+            text-align: center;
+        }
+        td {
+            padding: 8px;
+            text-align: center;
+        }
+        form {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        label {
+            margin-right: 10px;
+        }
+        button {
+            background-color: #ccb78f;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: "Garamond", serif;
+        }
+        button:hover {
+            background-color: #b3a186;
+        }
+    </style>
+</head>
+<body>
+    <h1>Tính Điểm Xập Xámm</h1>
+    <form method="POST">
+        <!-- Trường nhập thứ tự thắng -->
+        <label for="chi_dau">Chi đầu (thứ tự thắng):</label>
+        <input type="text" id="chi_dau" name="chi_dau" >
+        <br><br>
+
+        <label for="chi_giua">Chi giữa (thứ tự thắng):</label>
+        <input type="text" id="chi_giua" name="chi_giua">
+        <br><br>
+
+        <label for="chi_cuoi">Chi cuối (thứ tự thắng):</label>
+        <input type="text" id="chi_cuoi" name="chi_cuoi" >
+        <br><br>
+
+        <!-- Dropdown chọn Mậu Binh -->
+        <h2>Chọn Mậu Binh</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Người chơi</th>
+                    <th>Mậu Binh</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td>{{ player }}</td>
+                    <td>
+                        <select name="mau_binh_{{player}}">
+                            <option value="none" {% if scores[player]["mau_binh"] == "none" %}selected{% endif %}>Không</option>
+                            <option value="rong_dong_hoa" {% if scores[player]["mau_binh"] == "rong_dong_hoa" %}selected{% endif %}>Rồng Đồng Hoa</option>
+                            <option value="sanh_rong" {% if scores[player]["mau_binh"] == "sanh_rong" %}selected{% endif %}>Sảnh Rồng</option>
+                            <option value="3_thung_pha_sanh" {% if scores[player]["mau_binh"] == "3_thung_pha_sanh" %}selected{% endif %}>3 Thùng Phá Sảnh</option>
+                            <option value="dong_chat_12_la" {% if scores[player]["mau_binh"] == "dong_chat_12_la" %}selected{% endif %}>Đồng Chất 12 Lá</option>
+                            <option value="6_doi" {% if scores[player]["mau_binh"] == "6_doi" %}selected{% endif %}>6 Đôi</option>
+                            <option value="5_doi_1_xam_chi" {% if scores[player]["mau_binh"] == "5_doi_1_xam_chi" %}selected{% endif %}>5 Đôi 1 Xám Chi</option>
+                            <option value="3_xam_chi" {% if scores[player]["mau_binh"] == "3_xam_chi" %}selected{% endif %}>3 Xám Chi</option>
+                        </select>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <br><br>
+        <button type="submit">Tính Điểm</button>
+    </form>
+
+    <!-- Kết quả -->
+    <h2>Kết Quả</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Người chơi</th>
+                <th>Chi đầu</th>
+                <th>Chi giữa</th>
+                <th>Chi cuối</th>
+                <th>Phạt sập hầm</th>
+                <th>Mậu Binh</th>
+                <th>Tổng</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for player in players %}
+            <tr>
+                <td>{{ player }}</td>
+                <td>{{ scores[player]["chi_dau"] }}</td>
+                <td>{{ scores[player]["chi_giua"] }}</td>
+                <td>{{ scores[player]["chi_cuoi"] }}</td>
+                <td>{{ scores[player]["sap_ham"] }}</td>
+                <td>
+                    {% if scores[player]["mau_binh"] == "none" %}
+                    Không
+                    {% else %}
+                    {{ scores[player]["mau_binh"].replace("_", " ").capitalize() }}
+                    {% endif %}
+                </td>
+                <td>{{ scores[player]["tong"] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Sập Hầm</h2>
+    <ul>
+        {% for result in sap_ham_results %}
+        <li>{{ result }}</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Lịch Sử Các Ván Đấu</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Round</th>
+            <th>Alvin</th>
+            <th>Ryan</th>
+            <th>May</th>
+            <th>Cece</th>
+            <th>Tổng điểm</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for round in history %}
+        <tr>
+            <td>{{ round.round }}</td>
+            <td>{{ round.Alvin }}</td>
+            <td>{{ round.Ryan }}</td>
+            <td>{{ round.May }}</td>
+            <td>{{ round.Cece }}</td>
+            <td>{{ round.total }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+</body>
+</html>
