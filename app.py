@@ -1,15 +1,9 @@
-import os
-import json
 from flask import Flask, render_template, request, redirect, url_for
-from datetime import datetime
 
 app = Flask(__name__)
 
-data_file = "data.json"
-first_time_save = True  # Để kiểm tra lần đầu bấm Tính điểm
-
 default_players = ["Alvin", "Ryan", "May", "Cece"]
-players = default_players[:]
+players = default_players[:]  # Người chơi hiện tại
 max_players = 4
 min_players = 2
 
@@ -31,6 +25,7 @@ mau_binh_points = {
     "3_xam_chi": 2
 }
 
+# Lưu giá trị chi cuối cùng nhập vào
 last_chi_dau = ""
 last_chi_giua = ""
 last_chi_cuoi = ""
@@ -52,15 +47,10 @@ def reset_game_state():
 
 reset_game_state()
 
-def save_history_to_json():
-    # Lưu toàn bộ history vào file JSON
-    with open(data_file, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=4)
-
 @app.route("/", methods=["GET", "POST"])
 def index():
     global scores, sap_ham_results, history, player_total_points, conversion_rate, currency, players
-    global last_chi_dau, last_chi_giua, last_chi_cuoi, first_time_save
+    global last_chi_dau, last_chi_giua, last_chi_cuoi
 
     if request.method == "POST":
         if "update_settings" in request.form:
@@ -98,9 +88,6 @@ def index():
             last_chi_dau = ""
             last_chi_giua = ""
             last_chi_cuoi = ""
-            # Ghi file json rỗng
-            if os.path.exists(data_file):
-                save_history_to_json()  # lưu history trống vào file
             return redirect(url_for("index"))
 
         if "delete_round" in request.form:
@@ -110,13 +97,8 @@ def index():
             for p in players:
                 player_total_points[p] -= round_data[p]
 
-            # Cập nhật số thứ tự ván
             for i, round_entry in enumerate(history):
                 round_entry["round"] = i + 1
-
-            # Lưu lại file json
-            if os.path.exists(data_file):
-                save_history_to_json()
 
             return redirect(url_for("index"))
 
@@ -131,11 +113,6 @@ def index():
                 player_total_points[p] += new_scores[p] - old_scores[p]
 
             history[round_to_edit - 1].update(new_scores)
-
-            # Lưu file json sau khi sửa
-            if os.path.exists(data_file):
-                save_history_to_json()
-
             return redirect(url_for("index"))
 
         # Tính điểm ván mới
@@ -143,6 +120,7 @@ def index():
         chi_giua = request.form.get("chi_giua", "").strip().lower()
         chi_cuoi = request.form.get("chi_cuoi", "").strip().lower()
 
+        # Cập nhật last chi
         last_chi_dau = chi_dau
         last_chi_giua = chi_giua
         last_chi_cuoi = chi_cuoi
@@ -154,7 +132,7 @@ def index():
         mb_players = [p for p in players if scores[p]["mau_binh"] != "none"]
         has_mau_binh = len(mb_players) > 0
 
-        # Reset điểm
+        # Reset điểm trước khi tính
         for p in players:
             scores[p]["chi_dau"] = 0
             scores[p]["chi_giua"] = 0
@@ -163,8 +141,10 @@ def index():
             scores[p]["tong"] = 0
 
         if has_mau_binh:
+            # Có Mậu Binh -> không tính chi, không sập hầm
             apply_mau_binh_scoring(mb_players)
         else:
+            # Không MB -> tính chi
             if chi_dau:
                 calculate_points(chi_dau, "chi_dau")
             if chi_giua:
@@ -188,25 +168,12 @@ def index():
             round_data[p] = scores[p]["tong"]
             if scores[p]["mau_binh"] != "none":
                 round_data[f"{p}_mau_binh"] = scores[p]["mau_binh"]
-        # Lưu thời gian chơi
-        round_data["played_at"] = datetime.now().isoformat()
 
         history.append(round_data)
 
         # Cập nhật tổng điểm
         for p in players:
             player_total_points[p] += scores[p]["tong"]
-
-        # Lần đầu bấm tính điểm, kiểm tra file
-        if first_time_save:
-            if not os.path.exists(data_file):
-                # Tạo file rỗng
-                with open(data_file, "w", encoding="utf-8") as f:
-                    json.dump([], f)
-            first_time_save = False
-
-        # Lưu history vào file json
-        save_history_to_json()
 
         # Reset mậu binh về không
         for p in players:
@@ -232,14 +199,54 @@ def index():
         last_chi_cuoi=last_chi_cuoi
     )
 
+""" def calculate_points(order, chi):
+    code_map = {
+        'a': 'Alvin',
+        'r': 'Ryan',
+        'm': 'May',
+        'c': 'Cece'
+    }
+    num_p = len(players)
+    if len(order) != num_p:
+        return
+
+    ranked_players = []
+    for i, code in enumerate(order):
+        if code in code_map and code_map[code] in players:
+            ranked_players.append(code_map[code])
+        else:
+            return
+
+    if num_p == 2:
+        # 2 người
+        scores[ranked_players[0]][chi] = 3
+        scores[ranked_players[1]][chi] = -3
+    elif num_p == 3:
+        # 3 người: so sánh cặp
+        # p[0] vs p[1]
+        scores[ranked_players[0]][chi] += 1
+        scores[ranked_players[1]][chi] -= 1
+        # p[0] vs p[2]
+        scores[ranked_players[0]][chi] += 1
+        scores[ranked_players[2]][chi] -= 1
+        # p[1] vs p[2]
+        scores[ranked_players[1]][chi] += 1
+        scores[ranked_players[2]][chi] -= 1
+    else:
+        # 4 người
+        point_map = {0:3,1:1,2:-1,3:-3}
+        for i, p in enumerate(ranked_players):
+            scores[p][chi] = point_map[i] """
 def calculate_points(order, chi):
     num_p = len(players)
     if len(order) != num_p:
         return
-    # Tạo map ký tự đầu
+
+    # Tạo map ký tự đầu -> player
     first_letters_map = {}
     for p in players:
         first_letter = p[0].lower()
+        # Giả sử không có trùng, nếu có thì phải xử lý thêm
         first_letters_map[first_letter] = p
 
     ranked_players = []
@@ -251,22 +258,29 @@ def calculate_points(order, chi):
             else:
                 return
         else:
+            # Ký tự không hợp lệ
             return
 
     if num_p == 2:
+        # 2 người
         scores[ranked_players[0]][chi] = 3
         scores[ranked_players[1]][chi] = -3
     elif num_p == 3:
+        # 3 người: so sánh cặp
         scores[ranked_players[0]][chi] += 1
         scores[ranked_players[1]][chi] -= 1
+
         scores[ranked_players[0]][chi] += 1
         scores[ranked_players[2]][chi] -= 1
+
         scores[ranked_players[1]][chi] += 1
         scores[ranked_players[2]][chi] -= 1
     else:
+        # 4 người
         point_map = {0:3,1:1,2:-1,3:-3}
         for i, p in enumerate(ranked_players):
             scores[p][chi] = point_map[i]
+
 
 def check_sap_ham():
     global sap_ham_results
@@ -284,6 +298,9 @@ def check_sap_ham():
                     sap_ham_results.append(f"{loser} đã bị Sập Hầm bởi {winner}")
 
 def apply_mau_binh_scoring(mb_players):
+    # Mậu Binh logic cũ giữ nguyên
+    # 1 MB: MB ăn MB_points từ mỗi non-MB
+    # >1 MB: tính chênh lệch giữa MB, non-MB trả cho từng MB
     mb_values = {p: mau_binh_points[scores[p]["mau_binh"]] for p in players}
     non_mb = [p for p in players if p not in mb_players]
 
@@ -294,6 +311,7 @@ def apply_mau_binh_scoring(mb_players):
             scores[mb_player]["tong"] += val
             scores[other]["tong"] -= val
     else:
+        # Nhiều MB players
         for p1 in mb_players:
             for p2 in mb_players:
                 if p1 != p2:
@@ -301,6 +319,7 @@ def apply_mau_binh_scoring(mb_players):
                     if diff > 0:
                         scores[p1]["tong"] += diff
                         scores[p2]["tong"] -= diff
+        # Non-MB trả cho mỗi MB
         for nm in non_mb:
             for mbp in mb_players:
                 val = mb_values[mbp]
