@@ -4,58 +4,93 @@ body {
     color: #333;
     padding: 20px;
 }
-h1, h2 {
+
+h1,
+h2 {
     font-weight: normal;
     text-align: center;
     color: #4a3f35;
+    margin-bottom: 20px;
 }
+
 table {
     width: 100%;
     border-collapse: collapse;
     background-color: #fffaf2;
+    border-radius: 5px;
+    overflow: hidden;
+    /* để bo góc toàn bảng */
+    margin-bottom: 20px;
 }
-table, th, td {
+
+table,
+th,
+td {
     border: 1px solid #ccb78f;
 }
+
 th {
     background-color: #e5d7c2;
     font-weight: normal;
-    padding: 8px;
+    padding: 10px;
     text-align: center;
+    color: #4a3f35;
 }
+
 td {
-    padding: 8px;
+    padding: 10px;
     text-align: center;
 }
-button {
+
+form {
+    margin-bottom: 20px;
+}
+
+button,
+input[type="submit"] {
     background-color: #ccb78f;
     border: none;
     padding: 8px 16px;
     cursor: pointer;
     font-family: "Garamond", serif;
+    border-radius: 4px;
+    transition: background-color 0.3s;
 }
-button:hover {
+
+button:hover,
+input[type="submit"]:hover {
     background-color: #b3a186;
 }
 
-/* Hiệu ứng cho tiền */
-.money-positive {
-    outline: 2px solid green;
-    font-weight: bold;
-    animation: pulse-green 1s infinite;
-}
+/* Hiển thị tiền */
+.money-positive,
 .money-negative {
-    outline: 2px solid red;
     font-weight: bold;
-    animation: pulse-red 1s infinite;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 5px;
+    font-size: 90%;
 }
-@keyframes pulse-green {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
+
+.money-positive {
+    background-color: #dff0d8;
+    /* xanh nhạt */
+    color: #3c763d;
 }
-@keyframes pulse-red {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
+
+.money-negative {
+    background-color: #f2dede;
+    /* đỏ nhạt */
+    color: #a94442;
+}
+
+/* Style cho các input nhỏ trong lịch sử ván */
+input[type="text"][size="3"] {
+    text-align: center;
+    font-family: "Garamond", serif;
+}
+
+/* Nhấn mạnh chữ Mậu Binh trong lịch sử */
+table td span[style*="color:red"] {
+    margin-left: 5px;
 }
