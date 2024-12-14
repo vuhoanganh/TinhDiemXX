@@ -199,7 +199,7 @@ def index():
         last_chi_cuoi=last_chi_cuoi
     )
 
-def calculate_points(order, chi):
+""" def calculate_points(order, chi):
     code_map = {
         'a': 'Alvin',
         'r': 'Ryan',
@@ -236,7 +236,51 @@ def calculate_points(order, chi):
         # 4 người
         point_map = {0:3,1:1,2:-1,3:-3}
         for i, p in enumerate(ranked_players):
+            scores[p][chi] = point_map[i] """
+def calculate_points(order, chi):
+    num_p = len(players)
+    if len(order) != num_p:
+        return
+
+    # Tạo map ký tự đầu -> player
+    first_letters_map = {}
+    for p in players:
+        first_letter = p[0].lower()
+        # Giả sử không có trùng, nếu có thì phải xử lý thêm
+        first_letters_map[first_letter] = p
+
+    ranked_players = []
+    for code in order:
+        if code in first_letters_map:
+            p = first_letters_map[code]
+            if p in players:
+                ranked_players.append(p)
+            else:
+                return
+        else:
+            # Ký tự không hợp lệ
+            return
+
+    if num_p == 2:
+        # 2 người
+        scores[ranked_players[0]][chi] = 3
+        scores[ranked_players[1]][chi] = -3
+    elif num_p == 3:
+        # 3 người: so sánh cặp
+        scores[ranked_players[0]][chi] += 1
+        scores[ranked_players[1]][chi] -= 1
+
+        scores[ranked_players[0]][chi] += 1
+        scores[ranked_players[2]][chi] -= 1
+
+        scores[ranked_players[1]][chi] += 1
+        scores[ranked_players[2]][chi] -= 1
+    else:
+        # 4 người
+        point_map = {0:3,1:1,2:-1,3:-3}
+        for i, p in enumerate(ranked_players):
             scores[p][chi] = point_map[i]
+
 
 def check_sap_ham():
     global sap_ham_results
