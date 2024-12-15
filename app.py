@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for # type: ignore
 
 app = Flask(__name__)
 
@@ -52,6 +52,10 @@ def index():
     global scores, sap_ham_results, history, player_total_points, conversion_rate, currency, players
     global last_chi_dau, last_chi_giua, last_chi_cuoi
 
+    # Giá trị mặc định cho "Tỷ lệ quy đổi" và "Đơn vị tiền tệ"
+    default_conversion_rate = 0.25
+    default_currency = "USD"
+
     if request.method == "POST":
         if "update_settings" in request.form:
             num_players = int(request.form.get("num_players", len(players)))
@@ -77,8 +81,8 @@ def index():
             return redirect(url_for("index"))
 
         if "update_conversion_rate" in request.form:
-            conversion_rate = float(request.form["conversion_rate"])
-            currency = request.form.get("currency", "VND")
+            conversion_rate = float(request.form.get("conversion_rate", default_conversion_rate))
+            currency = request.form.get("currency", default_currency)
             return redirect(url_for("index"))
 
         if "clear_history" in request.form:
@@ -181,6 +185,10 @@ def index():
 
         return redirect(url_for("index"))
 
+    # Nếu là GET request, reset giá trị mặc định
+    conversion_rate = default_conversion_rate
+    currency = default_currency
+
     has_mau_binh = any(scores[player]["mau_binh"] != "none" for player in players)
     return render_template(
         "index.html",
@@ -198,6 +206,7 @@ def index():
         last_chi_giua=last_chi_giua,
         last_chi_cuoi=last_chi_cuoi
     )
+
 
 """ def calculate_points(order, chi):
     code_map = {
