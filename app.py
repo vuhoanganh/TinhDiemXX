@@ -2,13 +2,16 @@
 import sqlite3
 from datetime import datetime
 import os
+
 from flask import Flask, render_template, request, redirect, url_for # type: ignore
 
 app = Flask(__name__)
+import tempfile
 
-# Đường dẫn file database SQLite
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE = os.path.join(BASE_DIR, "database.db")
+DATABASE = os.path.join(tempfile.gettempdir(), "database.db")
+
+# # Đường dẫn file database SQLite
+# DATABASE = os.path.join(os.getcwd(), "database.db")
 
 # Cấu hình mặc định
 default_players = ["Alvin", "Ryan", "May", "Cece"]
@@ -59,8 +62,11 @@ def create_table():
                 description TEXT
             )
         ''')
+        print("Database created successfully!")  # Xác nhận bảng được khởi tạo
         conn.commit()
-
+""" if __name__ == "__main__":
+    create_table()  # Đảm bảo database được khởi tạo
+    app.run(debug=True) """
 
 # Hàm lưu dữ liệu vào database
 def save_game_to_db(round_number, scores, description):
@@ -213,15 +219,15 @@ def index():
             ]).strip()
 
         }
-        round_data = {
-            "round": len(history) + 1,
-            "player1": scores[players[0]]["tong"] if len(players) > 0 else 0,
-            "player2": scores[players[1]]["tong"] if len(players) > 1 else 0,
-            "player3": scores[players[2]]["tong"] if len(players) > 2 else 0,
-            "player4": scores[players[3]]["tong"] if len(players) > 3 else 0,
-            "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "description": ""
-        }
+        # round_data = {
+        #     "round": len(history) + 1,
+        #     "player1": scores[players[0]]["tong"] if len(players) > 0 else 0,
+        #     "player2": scores[players[1]]["tong"] if len(players) > 1 else 0,
+        #     "player3": scores[players[2]]["tong"] if len(players) > 2 else 0,
+        #     "player4": scores[players[3]]["tong"] if len(players) > 3 else 0,
+        #     "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        #     "description": ""
+        # }
 
         # Thêm thông tin Mậu Binh vào description
         mau_binh_description = " | ".join([
@@ -344,7 +350,6 @@ def apply_mau_binh_scoring(mb_players):
                 scores[p]["tong"] -= mb_values[mb_player]
 
 
-
+create_table()
 if __name__ == "__main__":
-    create_table()
     app.run(debug=True)
