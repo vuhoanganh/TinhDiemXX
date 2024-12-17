@@ -154,11 +154,13 @@
                 <td>{{ scores[player]["sap_ham"] }}</td>
                 <td>
                     {% if scores[player]["mau_binh"] == "none" %}
-                    Không
+                        Không
                     {% else %}
-                    {{ scores[player]["mau_binh"].replace("_", " ")|title }}
+                        {{ scores[player]["mau_binh"].replace('_', ' ')|title }}
                     {% endif %}
                 </td>
+                
+                               
                 <td>{{ scores[player]["tong"] }}</td>
             </tr>
             {% endfor %}
@@ -194,12 +196,15 @@
                 <td>{{ round.round }}</td>
                 {% for player in players %}
                 <td>
-                    {{ round[player] }}
-                    {% if round[player ~ '_mau_binh'] is defined %}
-                    <span style="color:red;font-weight:bold;font-size:smaller;">({{ round[player ~
-                        '_mau_binh'].replace('_', ' ')|title }})</span>
+                    {{ round[player] if round[player] is not none else '' }}
+                    {% if round[player ~ '_mau_binh'] %}
+                    <span style="color:red;">({{ round[player ~ '_mau_binh'].replace('_', ' ')|title }})</span>
                     {% endif %}
                 </td>
+            
+                
+            
+                
                 {% endfor %}
                 <td>
                     <!-- Xóa ván đấu -->
@@ -211,7 +216,7 @@
                     <form method="POST" style="display: inline;">
                         <input type="hidden" name="edit_round" value="{{ round.round }}">
                         {% for player in players %}
-                        <input type="text" name="edit_{{player}}" value="{{ round[player] }}" size="3"
+                        <input type="text" name="edit_{{player}}" value="{{ round[player] }}" size="3" 
                             class="form-control d-inline-block" style="width:60px;">
                         {% endfor %}
                         <button type="submit" class="btn btn-primary btn-sm">Sửa</button>
@@ -220,11 +225,13 @@
             </tr>
             {% endfor %}
         </tbody>
+        
+        
     </table>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Script localstore -->
-    <script src="{{ url_for('static', filename='js/localstore.js') }}"></script>
+    <!-- <script src="{{ url_for('static', filename='js/localstore.js') }}"></script>
     <script>
         // Giả sử server render history vào biến JavaScript
         var currentHistory = JSON.parse('{{ history|tojson|default([])|safe }}');
@@ -235,7 +242,7 @@
 
         // Mỗi lần cần hiển thị history từ localStorage:
         displayHistoryFromLocalStorage();
-    </script>
+    </script> -->
 </body>
 
 </html>
