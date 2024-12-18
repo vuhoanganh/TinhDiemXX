@@ -8,7 +8,10 @@ from flask import Flask, render_template, request, redirect, url_for # type: ign
 app = Flask(__name__)
 import tempfile
 
+# Đường dẫn file database SQLite
 DATABASE = os.path.join(tempfile.gettempdir(), "database.db")
+print(f"Database path: {DATABASE}")
+
 
 # # Đường dẫn file database SQLite
 # DATABASE = os.path.join(os.getcwd(), "database.db")
@@ -71,10 +74,10 @@ def create_table():
 # Hàm lưu dữ liệu vào database
 def save_game_to_db(round_number, scores, description):
     # Giải nén điểm số từng người chơi từ scores dictionary
-    player1_score = scores.get(players[0], {}).get("tong", 0)
-    player2_score = scores.get(players[1], {}).get("tong", 0)
-    player3_score = scores.get(players[2], {}).get("tong", 0) if len(players) > 2 else None
-    player4_score = scores.get(players[3], {}).get("tong", 0) if len(players) > 3 else None
+    player_scores = [
+        scores.get(players[i], {}).get("tong", 0) if i < len(players) else None
+        for i in range(4)
+    ]
 
     # Lưu vào SQLite
     with sqlite3.connect(DATABASE) as conn:
@@ -84,10 +87,10 @@ def save_game_to_db(round_number, scores, description):
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             round_number,         # round
-            player1_score,        # player1
-            player2_score,        # player2
-            player3_score,        # player3 (None nếu không có)
-            player4_score,        # player4 (None nếu không có)
+            player_scores[0],     # player1
+            player_scores[1],     # player2
+            player_scores[2],     # player3
+            player_scores[3],     # player4
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # played_at
             description           # description
         ))
@@ -110,6 +113,7 @@ def reset_game_state():
     }
     sap_ham_results = []
     player_total_points = {p: 0 for p in players}
+
 
 
 reset_game_state()
@@ -159,33 +163,42 @@ def index():
     default_conversion_rate = 0.25
     default_currency = "USD"
 
-    # Tải lịch sử từ SQLite khi trang được tải
     history.clear()
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM game_history ORDER BY round ASC")
         rows = cursor.fetchall()
         for row in rows:
-            round_entry = {}
-            try:
-                round_entry["round"] = row[0]
-                round_entry[players[0]] = row[1] if len(players) > 0 else 0
-                round_entry[players[1]] = row[2] if len(players) > 1 else 0
-                round_entry[players[2]] = row[3] if len(players) > 2 else 0
-                round_entry[players[3]] = row[4] if len(players) > 3 else 0
-                round_entry["played_at"] = row[5] if row[5] else "N/A"
-                round_entry["description"] = row[6] if row[6] else "Không"
-                history.append(round_entry)
-            except IndexError as e:
-                print(f"Error processing row: {row}, Error: {e}")
+            round_entry = {
+                "round": row[0],
+                players[0]: row[1] if len(players) > 0 else None,
+                players[1]: row[2] if len(players) > 1 else None,
+                players[2]: row[3] if len(players) > 2 else None,
+                players[3] if len(players) > 3 else "player4": row[4] if len(row) > 4 and len(players) > 3 else None,
+                "description": row[6] if len(row) > 6 else "Không",
+            }
+
+            history.append(round_entry)
+
+
 
     if request.method == "POST":
         if "update_settings" in request.form:
             num_players = int(request.form.get("num_players", len(players)))
             num_players = max(min_players, min(max_players, num_players))
             players = [request.form.get(f"player_name_{i+1}", f"Player{i+1}").strip() or f"Player{i+1}" for i in range(num_players)]
-            history.clear()
+
+            # history.clear()
             reset_game_state()
+             # Cắt giảm các giá trị không cần thiết nếu số người chơi giảm
+            for entry in history:
+                for i in range(num_players, max_players):
+                    entry[f"player{i+1}"] = None
+
+            # Xóa các người chơi dư thừa trong `scores` nếu số lượng giảm
+            for p in list(scores.keys()):
+                if p not in players:
+                    del scores[p]        
             last_chi_dau = last_chi_giua = last_chi_cuoi = ""
             return redirect(url_for("index"))
 
@@ -206,6 +219,32 @@ def index():
             with sqlite3.connect(DATABASE) as conn:
                 conn.execute("DELETE FROM game_history WHERE round = ?", (round_to_delete,))
             history[:] = [r for r in history if r["round"] != round_to_delete]
+            return redirect(url_for("index"))
+        
+        # Sửa ván đấu
+        if "edit_round" in request.form:
+            edit_round = int(request.form["edit_round"])
+            edited_scores = {}
+
+            # Lấy điểm số mới từ form
+            for player in players:
+                edited_scores[player] = int(request.form.get(f"edit_{player}", 0))
+
+            # Cập nhật vào database
+            with sqlite3.connect(DATABASE) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE game_history
+                    SET player1 = ?, player2 = ?, player3 = ?, player4 = ?
+                    WHERE round = ?
+                """, (
+                    edited_scores.get(players[0], 0),
+                    edited_scores.get(players[1], 0),
+                    edited_scores.get(players[2], 0),
+                    edited_scores.get(players[3], 0),
+                    edit_round
+                ))
+                conn.commit()
             return redirect(url_for("index"))
 
         # Tính điểm mới
@@ -244,27 +283,17 @@ def index():
             description += f"{mau_binh_description}"   
         round_data = {
             "round": len(history) + 1,
-            "player1": scores[players[0]]["tong"],
-            "player2": scores[players[1]]["tong"],
+            "player1": scores[players[0]]["tong"] if len(players) > 0 else None,
+            "player2": scores[players[1]]["tong"] if len(players) > 1 else None,
             "player3": scores[players[2]]["tong"] if len(players) > 2 else None,
             "player4": scores[players[3]]["tong"] if len(players) > 3 else None,
             "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "description": " - ".join([
-            f"{p}: {scores[p]['mau_binh'].replace('_', ' ') if scores[p]['mau_binh'] != 'none' else ''}"
-            for p in players if scores[p].get('mau_binh', 'none') != 'none'
-            ]).strip()
-
+            "description": " | ".join([
+                f"{p}: {scores[p]['mau_binh'].replace('_', ' ') if scores[p]['mau_binh'] != 'none' else ''}"
+                for p in players if scores[p]["mau_binh"] != "none"
+            ])
         }
-        # round_data = {
-        #     "round": len(history) + 1,
-        #     "player1": scores[players[0]]["tong"] if len(players) > 0 else 0,
-        #     "player2": scores[players[1]]["tong"] if len(players) > 1 else 0,
-        #     "player3": scores[players[2]]["tong"] if len(players) > 2 else 0,
-        #     "player4": scores[players[3]]["tong"] if len(players) > 3 else 0,
-        #     "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        #     "description": ""
-        # }
-
+        
         # Thêm thông tin Mậu Binh vào description
         mau_binh_description = " | ".join([
             f"{p}: {scores[p]['mau_binh'].replace('_', ' ') if scores[p]['mau_binh'] != 'none' else ''}"
@@ -289,14 +318,13 @@ def index():
         # Thêm vào history
         history.append(round_data)
 
-        # Lưu vào database
+        # Lưu vào SQLite
         with sqlite3.connect(DATABASE) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO game_history (round, player1, player2, player3, player4, played_at, description)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO game_history (player1, player2, player3, player4, played_at, description)
+                VALUES (?, ?, ?, ?, ?, ?)
             """, (
-                round_data["round"],
                 round_data["player1"],
                 round_data["player2"],
                 round_data["player3"],
@@ -304,6 +332,7 @@ def index():
                 round_data["played_at"],
                 round_data["description"]
             ))
+
             conn.commit()
 
         # Cập nhật tổng điểm
@@ -386,6 +415,7 @@ def apply_mau_binh_scoring(mb_players):
                 scores[p]["tong"] -= mb_values[mb_player]
 
 
-create_table()
 if __name__ == "__main__":
+    if not os.path.exists(DATABASE):
+        create_table()  # Tạo bảng nếu database chưa tồn tại
     app.run(debug=True)

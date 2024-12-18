@@ -181,71 +181,58 @@
     </ul>
     <hr>
 
+ 
     <!-- Bảng lịch sử các ván đấu -->
-    <h2>Lịch Sử Các Ván Đấu</h2>
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>Round</th>
-                {% for player in players %}
-                <th>{{ player }}</th>
-                {% endfor %}
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for round in history %}
-            <tr>
-                <td>{{ round.round }}</td>
-                {% for player in players %}
-                <td>
-                    {{ round[player] if round[player] is not none else '' }}
-                    {% if round[player ~ '_mau_binh'] %}
-                    <span style="color:red;">({{ round[player ~ '_mau_binh'].replace('_', ' ')|title }})</span>
-                    {% endif %}
-                </td>
-            
-                
-            
-                
-                {% endfor %}
-                <td>
-                    <!-- Xóa ván đấu -->
-                    <form method="POST" style="display: inline;">
-                        <input type="hidden" name="delete_round" value="{{ round.round }}">
-                        <button type="submit" class="btn btn-danger btn-sm">Xoá</button>
-                    </form>
-                    <!-- Sửa ván đấu -->
-                    <form method="POST" style="display: inline;">
-                        <input type="hidden" name="edit_round" value="{{ round.round }}">
-                        {% for player in players %}
-                        <input type="text" name="edit_{{player}}" value="{{ round[player] }}" size="3" 
-                            class="form-control d-inline-block" style="width:60px;">
-                        {% endfor %}
-                        <button type="submit" class="btn btn-primary btn-sm">Sửa</button>
-                    </form>
-                </td>
-            </tr>
+<!-- Bảng lịch sử các ván đấu -->
+<h2>Lịch Sử Các Ván Đấu</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Round</th>
+            {% for player in players %}
+            <th>{{ player }}</th>
             {% endfor %}
-        </tbody>
-        
-        
-    </table>
+            <th>Description</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for round in history %}
+        <tr>
+            <td>{{ round.round }}</td>
+            {% for player in players %}
+            <td>
+                {{ round[player] if round[player] is not none else '' }}
+            </td>
+            {% endfor %}
+            <td>{{ round.description }}</td>
+            <td>
+                <!-- Xóa ván đấu -->
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="delete_round" value="{{ round.round }}">
+                    <button type="submit" class="btn btn-danger btn-sm">Xoá</button>
+                </form>
+
+                <!-- Sửa ván đấu -->
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="edit_round" value="{{ round.round }}">
+                    {% for player in players %}
+                    <input type="number" name="edit_{{player}}" value="{{ round[player] }}"
+                           class="form-control d-inline-block" style="width:60px;" required>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary btn-sm">Sửa</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Script localstore -->
-    <!-- <script src="{{ url_for('static', filename='js/localstore.js') }}"></script>
-    <script>
-        // Giả sử server render history vào biến JavaScript
-        var currentHistory = JSON.parse('{{ history|tojson|default([])|safe }}');
-        console.log("Current History:", currentHistory);
-
-        // Sau khi load trang, ghép history vào localStorage
-        mergeAndSaveHistory(currentHistory);
-
-        // Mỗi lần cần hiển thị history từ localStorage:
-        displayHistoryFromLocalStorage();
-    </script> -->
+   
 </body>
 
 </html>
