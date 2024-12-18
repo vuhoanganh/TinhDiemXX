@@ -114,11 +114,47 @@ def reset_game_state():
 
 reset_game_state()
 
+# Tạo bảng database
+def create_table():
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS game_history (
+                round INTEGER PRIMARY KEY AUTOINCREMENT,
+                player1 INTEGER,
+                player2 INTEGER,
+                player3 INTEGER,
+                player4 INTEGER,
+                played_at TEXT,
+                description TEXT
+            )
+        ''')
+        print("Database created successfully!")
+        conn.commit()
 
+# Xóa file database
+def delete_database():
+    if os.path.exists(DATABASE):
+        os.remove(DATABASE)
+        print("Database deleted successfully!")
+    else:
+        print("Database does not exist.")
 @app.route("/", methods=["GET", "POST"])
 def index():
     global scores, sap_ham_results, history, player_total_points, conversion_rate, currency, players
     global last_chi_dau, last_chi_giua, last_chi_cuoi
+    global history
+    if request.method == "POST":
+        # Xử lý nút "Create DB"
+        if "create_db" in request.form:
+            create_table()
+            return redirect(url_for("index"))
+
+        # Xử lý nút "Delete DB"
+        if "delete_db" in request.form:
+            delete_database()
+            history.clear()  # Reset lịch sử
+            return redirect(url_for("index"))
 
     default_conversion_rate = 0.25
     default_currency = "USD"
