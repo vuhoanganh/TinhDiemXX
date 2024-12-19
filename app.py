@@ -2,19 +2,35 @@
 import sqlite3
 from datetime import datetime
 import os
-
+from sqlitecloud import connect # type: ignore
 from flask import Flask, render_template, request, redirect, url_for # type: ignore
-
+import ssl
 app = Flask(__name__)
 import tempfile
 
-# Đường dẫn file database SQLite
-DATABASE = os.path.join(tempfile.gettempdir(), "database.db")
-print(f"Database path: {DATABASE}")
+
+# kết nối db
+DATABASE_URI = "sqlitecloud://ced9kbtsnk.sqlite.cloud:8860/chinook.sqlite?apikey=KlqfrCYVzONDCDjq3I2alMoqd5WNCd82AyEzAjKs1yY"
+
+# Kiểm tra kết nốiex
+try:
+    conn = connect(DATABASE_URI)
+    conn.execute("USE DATABASE chinook.sqlite;")  # Thay your_database_name bằng tên cơ sở dữ liệu của bạn
+    print("Kết nối thành công!")
+    conn.close()
+except Exception as e:
+    print(f"Lỗi kết nối: {e}")
 
 
-# # Đường dẫn file database SQLite
-# DATABASE = os.path.join(os.getcwd(), "database.db")
+# Hàm kết nối đến SQLite Cloud
+def get_connection():
+  try:  
+    conn= connect(DATABASE_URI)
+    conn.execute("USE DATABASE chinook.sqlite;")
+    return conn
+  except Exception as e:
+        print(f"Lỗi khi kết nối: {e}")
+        return None
 
 # Cấu hình mặc định
 default_players = ["Alvin", "Ryan", "May", "Cece"]
@@ -50,52 +66,50 @@ last_chi_giua = ""
 last_chi_cuoi = ""
 
 
-# Tạo bảng nếu chưa tồn tại
 def create_table():
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS game_history (
-                round INTEGER PRIMARY KEY AUTOINCREMENT,
-                player1 INTEGER,
-                player2 INTEGER,
-                player3 INTEGER,
-                player4 INTEGER,
-                played_at TEXT,
-                description TEXT
-            )
-        ''')
-        print("Database created successfully!")  # Xác nhận bảng được khởi tạo
-        conn.commit()
-""" if __name__ == "__main__":
-    create_table()  # Đảm bảo database được khởi tạo
-    app.run(debug=True) """
+    conn = get_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS game_history (
+                    round INTEGER PRIMARY KEY AUTOINCREMENT,
+                    player1 INTEGER,
+                    player2 INTEGER,
+                    player3 INTEGER,
+                    player4 INTEGER,
+                    played_at TEXT,
+                    description TEXT
+                )
+            ''')
+            print("Database created successfully!")
+        except Exception as e:
+            print(f"Lỗi khi tạo bảng: {e}")
+        finally:
+            conn.close()  # Đóng kết nối sau khi hoàn thành
+    else:
+        print("Không thể kết nối tới cơ sở dữ liệu.")
+
 
 # Hàm lưu dữ liệu vào database
 def save_game_to_db(round_number, scores, description):
-    # Giải nén điểm số từng người chơi từ scores dictionary
     player_scores = [
         scores.get(players[i], {}).get("tong", 0) if i < len(players) else None
         for i in range(4)
     ]
-
-    # Lưu vào SQLite
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
+    with get_connection() as conn:
+        conn.execute("""
             INSERT INTO game_history (round, player1, player2, player3, player4, played_at, description)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
-            round_number,         # round
-            player_scores[0],     # player1
-            player_scores[1],     # player2
-            player_scores[2],     # player3
-            player_scores[3],     # player4
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # played_at
-            description           # description
+            round_number,
+            player_scores[0],
+            player_scores[1],
+            player_scores[2],
+            player_scores[3],
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            description
         ))
-
-        conn.commit()
 
 
 # Hàm reset game
@@ -118,68 +132,59 @@ def reset_game_state():
 
 reset_game_state()
 
-# Tạo bảng database
-def create_table():
-    with sqlite3.connect(DATABASE) as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS game_history (
-                round INTEGER PRIMARY KEY AUTOINCREMENT,
-                player1 INTEGER,
-                player2 INTEGER,
-                player3 INTEGER,
-                player4 INTEGER,
-                played_at TEXT,
-                description TEXT
-            )
-        ''')
-        print("Database created successfully!")
-        conn.commit()
+def fetch_data_from_game_history():
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM game_history")
+            rows = cursor.fetchall()
+            for row in rows:
+                print(row)  # Hoặc xử lý dữ liệu theo ý bạn
+    except Exception as e:
+        print(f"Lỗi khi truy vấn dữ liệu: {e}")
 
-# Xóa file database
-def delete_database():
-    if os.path.exists(DATABASE):
-        os.remove(DATABASE)
-        print("Database deleted successfully!")
-    else:
-        print("Database does not exist.")
+# Gọi hàm fetch_data_from_game_history() để kiểm tra
+fetch_data_from_game_history()
+
+# Lấy lịch sử ván đấu
+def fetch_game_history():
+    with get_connection() as conn:
+        result = conn.execute("SELECT * FROM game_history ORDER BY round ASC").fetchall()
+        return result
+    
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     global scores, sap_ham_results, history, player_total_points, conversion_rate, currency, players
     global last_chi_dau, last_chi_giua, last_chi_cuoi
-    global history
-    if request.method == "POST":
-        # Xử lý nút "Create DB"
-        if "create_db" in request.form:
-            create_table()
-            return redirect(url_for("index"))
-
-        # Xử lý nút "Delete DB"
-        if "delete_db" in request.form:
-            delete_database()
-            history.clear()  # Reset lịch sử
-            return redirect(url_for("index"))
-
+    global history, players
+    
     default_conversion_rate = 0.25
     default_currency = "USD"
 
+     # Lấy dữ liệu lịch sử
     history.clear()
-    with sqlite3.connect(DATABASE) as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM game_history ORDER BY round ASC")
         rows = cursor.fetchall()
         for row in rows:
-            round_entry = {
-                "round": row[0],
-                players[0]: row[1] if len(players) > 0 else None,
-                players[1]: row[2] if len(players) > 1 else None,
-                players[2]: row[3] if len(players) > 2 else None,
-                players[3] if len(players) > 3 else "player4": row[4] if len(row) > 4 and len(players) > 3 else None,
-                "description": row[6] if len(row) > 6 else "Không",
-            }
+            if isinstance(row, tuple):
+                entry = {
+                    "round": row[0],
+                    "player1": row[1],
+                    "player2": row[2],
+                    "player3": row[3],
+                    "player4": row[4],
+                    "played_at": row[5],
+                    "description": row[6],
+                }
+                history.append(entry)
+            else:
+                print(f"Lỗi: Dữ liệu không phải là tuple. row={row}, loại: {type(row)}")
 
-            history.append(round_entry)
-
+    if request.method == "POST":
+        print(f"Dữ liệu nhận được từ form: {request.form}")
 
 
     if request.method == "POST":
@@ -210,16 +215,28 @@ def index():
         if "clear_history" in request.form:
             history.clear()
             reset_game_state()
-            with sqlite3.connect(DATABASE) as conn:
-                conn.execute("DELETE FROM game_history")
+            with get_connection() as conn:
+                conn.execute("DELETE FROM game_history")  # Xóa toàn bộ dữ liệu
             return redirect(url_for("index"))
 
+
         if "delete_round" in request.form:
-            round_to_delete = int(request.form["delete_round"])
-            with sqlite3.connect(DATABASE) as conn:
-                conn.execute("DELETE FROM game_history WHERE round = ?", (round_to_delete,))
-            history[:] = [r for r in history if r["round"] != round_to_delete]
+            round_to_delete = request.form.get("delete_round", "").strip()
+            
+            if not round_to_delete:
+                print("Lỗi: Giá trị round_to_delete không được gửi.")
+            elif round_to_delete.isdigit():
+                round_to_delete = int(round_to_delete)
+                with get_connection() as conn:
+                    conn.execute("DELETE FROM game_history WHERE round = ?", (round_to_delete,))
+                history[:] = [r for r in history if r["round"] != round_to_delete]
+                print(f"Xoá thành công round: {round_to_delete}")
+            else:
+                print(f"Lỗi: Giá trị round_to_delete không hợp lệ: {round_to_delete}")
+            
             return redirect(url_for("index"))
+
+
         
         # Sửa ván đấu
         if "edit_round" in request.form:
@@ -231,7 +248,7 @@ def index():
                 edited_scores[player] = int(request.form.get(f"edit_{player}", 0))
 
             # Cập nhật vào database
-            with sqlite3.connect(DATABASE) as conn:
+            with get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE game_history
@@ -305,8 +322,13 @@ def index():
         # Xử lý lịch sử ván đấu
         for entry in history:
             if "player1" not in entry or "player2" not in entry:
-                entry["player1"] = entry["player2"] = entry["player3"] = entry["player4"] = 0
-
+                if isinstance(entry, dict):
+                    entry["player1"] = 0
+                    entry["player2"] = 0
+                    entry["player3"] = 0
+                    entry["player4"] = 0
+                else:
+                    print(f"Lỗi: entry không phải là dict. entry={entry}, loại: {type(entry)}")
 
                 # Thêm thông tin Mậu Binh vào round_data
                 if "round_data" in locals():
@@ -319,7 +341,7 @@ def index():
         history.append(round_data)
 
         # Lưu vào SQLite
-        with sqlite3.connect(DATABASE) as conn:
+        with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO game_history (player1, player2, player3, player4, played_at, description)
@@ -345,21 +367,24 @@ def index():
 
         return redirect(url_for("index"))
 
+    print("Dữ liệu lịch sử: ", history)
+
     return render_template(
-        "index.html",
-        scores=scores,
-        players=players,
-        sap_ham_results=sap_ham_results,
-        history=history,
-        player_total_points=player_total_points,
-        conversion_rate=conversion_rate,
-        currency=currency,
-        last_chi_dau=last_chi_dau,
-        last_chi_giua=last_chi_giua,
-        last_chi_cuoi=last_chi_cuoi,
-        max_players=max_players,
-        min_players=min_players
-    )
+    "index.html",
+    scores=scores,
+    players=players,
+    sap_ham_results=sap_ham_results,
+    history=history,  # Đảm bảo history được truyền đúng
+    player_total_points=player_total_points,
+    conversion_rate=conversion_rate,
+    currency=currency,
+    last_chi_dau=last_chi_dau,
+    last_chi_giua=last_chi_giua,
+    last_chi_cuoi=last_chi_cuoi,
+    max_players=max_players,
+    min_players=min_players
+)
+
 
 
 def calculate_points(order, chi):
@@ -416,6 +441,5 @@ def apply_mau_binh_scoring(mb_players):
 
 
 if __name__ == "__main__":
-    if not os.path.exists(DATABASE):
-        create_table()  # Tạo bảng nếu database chưa tồn tại
+    create_table()  # Đảm bảo bảng được khởi tạo
     app.run(debug=True)
