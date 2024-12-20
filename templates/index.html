@@ -67,19 +67,19 @@
         <div class="mb-3">
             <label for="chi_dau" class="form-label">Chi đầu (thứ tự thắng):</label>
             <input type="text" id="chi_dau" name="chi_dau" class="form-control" style="width:200px;"
-                value="{{ last_chi_dau }}">
+                value="">
         </div>
 
         <div class="mb-3">
             <label for="chi_giua" class="form-label">Chi giữa (thứ tự thắng):</label>
             <input type="text" id="chi_giua" name="chi_giua" class="form-control" style="width:200px;"
-                value="{{ last_chi_giua }}">
+                value="">
         </div>
 
         <div class="mb-3">
             <label for="chi_cuoi" class="form-label">Chi cuối (thứ tự thắng):</label>
             <input type="text" id="chi_cuoi" name="chi_cuoi" class="form-control" style="width:200px;"
-                value="{{ last_chi_cuoi }}">
+                value="">
         </div>
 
         <h2>Chọn Mậu Binh</h2>
@@ -137,7 +137,7 @@
                 <th>Chi giữa</th>
                 <th>Chi cuối</th>
                 <th>Phạt sập hầm</th>
-                <th>Mậu Binh</th>
+                <!-- <th>Mậu Binh</th> -->
                 <th>Tổng</th>
             </tr>
         </thead>
@@ -155,13 +155,13 @@
                 <td>{{ scores[player]["chi_giua"] }}</td>
                 <td>{{ scores[player]["chi_cuoi"] }}</td>
                 <td>{{ scores[player]["sap_ham"] }}</td>
-                <td>
+                <!-- <td>
                     {% if scores[player]["mau_binh"] == "none" %}
                         Không
                     {% else %}
                         {{ scores[player]["mau_binh"].replace('_', ' ')|title }}
                     {% endif %}
-                </td>
+                </td> -->
                 
                                
                 <td>{{ scores[player]["tong"] }}</td>
@@ -200,18 +200,18 @@
         <tr>
             <!-- Hiển thị round -->
             <td>{{ entry["round"] }}</td>
-            
-            <!-- Hiển thị điểm của từng người chơi -->
-            {% for i in range(1, 5) %}
-            <td>{{ entry["player" + i|string] if "player" + i|string in entry else '' }}</td>
+    
+            <!-- Hiển thị điểm tương ứng với từng player -->
+            {% for idx, player in enumerate(players) %}
+            <td>{{ entry.get("player" + (idx + 1)|string, '') }}</td>
             {% endfor %}
-            
+    
             <!-- Hiển thị description -->
             <td>{{ entry["description"] }}</td>
-            
+    
             <!-- Các hành động -->
             <td>
-                <!-- Nút Xóa -->
+                <!-- Nút Xoá -->
                 <form method="POST" style="display:inline;">
                     <input type="hidden" name="delete_round" value="{{ entry["round"] }}">
                     <button type="submit" class="btn btn-danger btn-sm">Xoá</button>
@@ -220,10 +220,8 @@
                 <!-- Nút Sửa -->
                 <form method="POST" style="display:inline;">
                     <input type="hidden" name="edit_round" value="{{ entry["round"] }}">
-                    {% for i in range(1, 5) %}
-                    <input type="number" name="edit_player{{ i }}" 
-                           value="{{ entry["player" + i|string] if "player" + i|string in entry else 0 }}"
-                           class="form-control d-inline-block" style="width:60px;" required>
+                    {% for idx, player in enumerate(players) %}
+                    <input type="number" name="edit_{{ player }}" value="{{ entry.get("player" + (idx + 1)|string, 0) }}" class="form-control d-inline-block" style="width:60px;">
                     {% endfor %}
                     <button type="submit" class="btn btn-primary btn-sm">Sửa</button>
                 </form>
@@ -232,8 +230,9 @@
         {% endfor %}
     </tbody>
     
-    
 </table>
+
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
    

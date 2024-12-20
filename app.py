@@ -4,9 +4,16 @@ from datetime import datetime
 import os
 from sqlitecloud import connect # type: ignore
 from flask import Flask, render_template, request, redirect, url_for # type: ignore
+
 import ssl
 app = Flask(__name__)
 import tempfile
+
+from jinja2 import pass_context
+
+@app.context_processor
+def utility_processor():
+    return dict(enumerate=enumerate)
 
 
 # kết nối db
@@ -20,6 +27,7 @@ try:
     conn.close()
 except Exception as e:
     print(f"Lỗi kết nối: {e}")
+
 
 
 # Hàm kết nối đến SQLite Cloud
@@ -148,9 +156,25 @@ fetch_data_from_game_history()
 
 # Lấy lịch sử ván đấu
 def fetch_game_history():
+    history = []
     with get_connection() as conn:
-        result = conn.execute("SELECT * FROM game_history ORDER BY round ASC").fetchall()
-        return result
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM game_history ORDER BY round ASC")
+        rows = cursor.fetchall()
+        for row in rows:
+            entry = {
+                "round": row[0],
+                "player1": row[1],
+                "player2": row[2],
+                "player3": row[3],
+                "player4": row[4],
+                "description": row[6] if len(row) > 6 else "Không",
+            }
+            history.append(entry)
+    print("Dữ liệu từ database:", history)
+    return history
+
+
     
 
 @app.route("/", methods=["GET", "POST"])
@@ -158,7 +182,8 @@ def index():
     global scores, sap_ham_results, history, player_total_points, conversion_rate, currency, players
     global last_chi_dau, last_chi_giua, last_chi_cuoi
     global history, players
-    
+    # Truyền len vào Jinja2
+    app.jinja_env.globals.update(len=len)
     default_conversion_rate = 0.25
     default_currency = "USD"
 
@@ -233,7 +258,20 @@ def index():
                 print(f"Xoá thành công round: {round_to_delete}")
             else:
                 print(f"Lỗi: Giá trị round_to_delete không hợp lệ: {round_to_delete}")
-            
+            # Tính lại tổng điểm và tiền từ bảng game_history
+            history = fetch_game_history()  # Lấy lại dữ liệu lịch sử
+            player_total_points = {player: 0 for player in players}
+
+            # Tính tổng điểm từ lịch sử
+            for entry in history:
+                for idx, player in enumerate(players):
+                    player_total_points[player] += entry.get(f"player{idx+1}", 0)
+
+            # Cập nhật tiền dựa trên tổng điểm
+            for player in players:
+                scores[player]["tong"] = player_total_points[player]
+                scores[player]["money"] = player_total_points[player] * conversion_rate
+
             return redirect(url_for("index"))
 
 
@@ -262,6 +300,21 @@ def index():
                     edit_round
                 ))
                 conn.commit()
+
+            # Tính lại tổng điểm và tiền từ bảng game_history
+            history = fetch_game_history()  # Lấy lại dữ liệu lịch sử
+            player_total_points = {player: 0 for player in players}
+
+            # Tính tổng điểm từ lịch sử
+            for entry in history:
+                for idx, player in enumerate(players):
+                    player_total_points[player] += entry.get(f"player{idx+1}", 0)
+
+            # Cập nhật tiền dựa trên tổng điểm
+            for player in players:
+                scores[player]["tong"] = player_total_points[player]
+                scores[player]["money"] = player_total_points[player] * conversion_rate
+    
             return redirect(url_for("index"))
 
         # Tính điểm mới
@@ -270,6 +323,8 @@ def index():
         chi_cuoi = request.form.get("chi_cuoi", "").strip().lower()
 
         last_chi_dau, last_chi_giua, last_chi_cuoi = chi_dau, chi_giua, chi_cuoi
+        # Xử lý thứ tự thắng
+        description = f"{chi_dau}-{chi_giua}-{chi_cuoi}"
 
         # Chọn Mậu Binh
         mau_binh_choices = {p: request.form.get(f"mau_binh_{p}", "none") for p in players}
@@ -284,7 +339,9 @@ def index():
             scores[p]["chi_dau"] = scores[p]["chi_giua"] = scores[p]["chi_cuoi"] = scores[p]["sap_ham"] = scores[p]["tong"] = 0
 
         if has_mau_binh:
+            print(f"Mậu Binh trước xử lý: {scores}")  # Debug log
             apply_mau_binh_scoring(mb_players)
+            print(f"Mậu Binh sau xử lý: {scores}")  # Debug log
         else:
             calculate_points(chi_dau, "chi_dau")
             calculate_points(chi_giua, "chi_giua")
@@ -294,10 +351,11 @@ def index():
                 scores[player]["tong"] = scores[player]["chi_dau"] + scores[player]["chi_giua"] + scores[player]["chi_cuoi"] + scores[player]["sap_ham"]
 
         # Lưu dữ liệu vào database
-        mau_binh_description = " | ".join([f"{p}: {scores[p]['mau_binh']}" for p in players if scores[p]['mau_binh'] != "none"])
+        mau_binh_description = " | ".join([f"{p}: {scores[p]['mau_binh'].replace('_', ' ')}" for p in players if scores[p]['mau_binh'] != "none"])
         description = f"{last_chi_dau}-{last_chi_giua}-{last_chi_cuoi}"
         if mau_binh_description:
-            description += f"{mau_binh_description}"   
+            description += f" | {mau_binh_description}"  # Kết hợp thông tin Mậu Binh (nếu có)
+
         round_data = {
             "round": len(history) + 1,
             "player1": scores[players[0]]["tong"] if len(players) > 0 else None,
@@ -305,19 +363,33 @@ def index():
             "player3": scores[players[2]]["tong"] if len(players) > 2 else None,
             "player4": scores[players[3]]["tong"] if len(players) > 3 else None,
             "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "description": " | ".join([
-                f"{p}: {scores[p]['mau_binh'].replace('_', ' ') if scores[p]['mau_binh'] != 'none' else ''}"
-                for p in players if scores[p]["mau_binh"] != "none"
-            ])
+            "description": description  # Ghi nhận đầy đủ thông tin vào description
+        }
+
+        #Lưu dữ liệu vào database
+        round_data = {
+            "round": len(history) + 1,
+            "player1": scores[players[0]]["tong"] if len(players) > 0 else None,
+            "player2": scores[players[1]]["tong"] if len(players) > 1 else None,
+            "player3": scores[players[2]]["tong"] if len(players) > 2 else None,
+            "player4": scores[players[3]]["tong"] if len(players) > 3 else None,
+            "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "description": ""
         }
         
-        # Thêm thông tin Mậu Binh vào description
-        mau_binh_description = " | ".join([
-            f"{p}: {scores[p]['mau_binh'].replace('_', ' ') if scores[p]['mau_binh'] != 'none' else ''}"
-            for p in players if scores[p]['mau_binh'] != 'none'
-        ])
-        if mau_binh_description:
+        # Xử lý Description
+        if has_mau_binh:
+            mau_binh_description = " | ".join([
+                f"{p}: {scores[p]['mau_binh'].replace('_', ' ')}"
+                for p in players if scores[p]['mau_binh'] != 'none'
+            ])
             round_data["description"] = mau_binh_description
+            print(f"Mậu Binh Description: {mau_binh_description}")  # Debug log
+        else:
+            round_data["description"] = f"{last_chi_dau}-{last_chi_giua}-{last_chi_cuoi}"
+            print(f"Chi Description: {round_data['description']}")  # Debug log
+
+
 
         # Xử lý lịch sử ván đấu
         for entry in history:
@@ -343,6 +415,7 @@ def index():
         # Lưu vào SQLite
         with get_connection() as conn:
             cursor = conn.cursor()
+            print(f"Lưu vào database: {round_data['description']}")  # Debug log
             cursor.execute("""
                 INSERT INTO game_history (player1, player2, player3, player4, played_at, description)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -354,8 +427,10 @@ def index():
                 round_data["played_at"],
                 round_data["description"]
             ))
-
             conn.commit()
+
+
+        print(f"Lưu vào database: {round_data['description']}")  # Debug log
 
         # Cập nhật tổng điểm
         for p in players:
@@ -367,7 +442,15 @@ def index():
 
         return redirect(url_for("index"))
 
+    # Đảm bảo lấy lịch sử từ database
+    history = fetch_game_history()
     print("Dữ liệu lịch sử: ", history)
+
+    # Chuẩn hóa dữ liệu lịch sử
+    for entry in history:
+        # Đảm bảo chỉ giữ số lượng người chơi đúng
+        for i in range(len(players), max_players):
+            entry[f"player{i + 1}"] = None
 
     return render_template(
     "index.html",
@@ -388,13 +471,30 @@ def index():
 
 
 def calculate_points(order, chi):
+    """
+    Tính điểm dựa trên thứ tự thắng của từng chi.
+    - Người thắng (+1) từ mỗi người thua.
+    - Người thua (-1) từ mỗi người thắng.
+    """
+    # Bản đồ ký tự đầu -> tên người chơi
     first_letters_map = {p[0].lower(): p for p in players}
     ranked_players = [first_letters_map.get(code, None) for code in order if code in first_letters_map]
+
+    # Kiểm tra nếu thứ tự thắng không khớp số người chơi
     if len(ranked_players) != len(players):
         return
-    point_map = {0: 3, 1: 1, 2: -1, 3: -3}
-    for i, p in enumerate(ranked_players):
-        scores[p][chi] = point_map[i]
+
+    # Reset điểm của từng chi
+    for player in players:
+        scores[player][chi] = 0
+
+    # Tính điểm dựa trên thứ tự thắng
+    for i, winner in enumerate(ranked_players):
+        for j, loser in enumerate(ranked_players):
+            if i < j:  # Winner đánh bại Loser
+                scores[winner][chi] += 1
+                scores[loser][chi] -= 1
+
 
 
 def check_sap_ham():
