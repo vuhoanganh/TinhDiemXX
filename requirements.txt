@@ -1,2 +1,4 @@
 Flask==3.0.0
+sqlitecloud==0.0.83
+python>=3.9
 
